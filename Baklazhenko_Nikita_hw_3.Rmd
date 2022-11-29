@@ -5,7 +5,8 @@ output:
   pdf_document: default
 date: "2022-10-17"
 ---
-## Homework 3
+## Clustering With K-means and Gaussian Mixture
+
 #Data Upload
 First, download all the necessary packages and scale the data. Most of the data looks okay, despite the few outliers, but we will keep them to compare the performance of the models with them 
 ```{r setup, include=FALSE}
