@@ -1,0 +1,93 @@
+---
+title: "Baklazhenko"
+output:
+  html_document: default
+  pdf_document: default
+date: "2022-10-17"
+---
+## Homework 3
+#Data Upload
+First, download all the necessary packages and scale the data. Most of the data looks okay, despite the few outliers, but we will keep them to compare the performance of the models with them 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tibble)
+library(glmnet)
+library(tidyverse)
+library(DescTools)
+library(caret)
+library(dplyr)
+library(cluster) 
+library(factoextra) 
+library(gridExtra) 
+library(ggpubr)
+library(mclust)
+options(warn=-1)
+PATH = 'C:/Users/Hp/Desktop/SIM_TA_1'
+Milan <- read_csv(file.path(PATH, "data/Airbnb_Milan_HW3.csv"), col_names = TRUE,show_col_types = FALSE)
+```
+```{r Initial Data}
+Milan <- scale(Milan)
+head(Milan)
+
+```
+##Plotting the initial Data
+As we can see the dominant majority of data is clustered in one place and no clear distinction is possible to make so it's not obvious how many clusters if any will provide good results   
+
+```{r Plotting the initial Data}
+k2 <- kmeans(Milan, centers = 2, nstart = 25)
+k6 <- kmeans(Milan, centers = 6, nstart = 25)
+k12 <- kmeans(Milan, centers = 12, nstart = 25)
+fviz_cluster(k2, geom = "point",  data = Milan) + ggtitle("k = 2")
+fviz_cluster(k6, geom = "point",  data = Milan) + ggtitle("k = 6")
+fviz_cluster(k12, geom = "point",  data = Milan) + ggtitle("k = 12")
+```
+## Hard clustering 
+At this stage, we implement a k-means hard clustering algorithm and try to find out how many clusters we need. As shown by the graph below the sum of squares is steadily decreasing as we increase the number of clusters. No clear break point exists on the chart, so no insight into number of clusters exists.
+
+```{r Hard clustering }
+wss <- function(k) {
+  kmeans(Milan, k, nstart = 10, iter.max = 35)$tot.withinss
+}
+k.values <- 1:50
+wss_values <- map_dbl(k.values, wss)
+
+wss_df <- data.frame(k=k.values, wss= wss_values)
+ggplot(wss_df, aes(x=k,y=wss)) + 
+  geom_point() +
+  geom_line() +
+  xlab("Number of clusters K") +
+  ylab("Total within-clusters sum of squares")
+```
+Similarly, when we try to find the optimal number of clusters from gap statistics we cannot see its constant growth. However, we do see a certain drop in 17 clusters and a slowdown in growth somewhere around 38 clusters (was attempted to estimate for 100 clusters and gap statistics were still slightly growing). So, to not overfit the model was decided to stick to 17 clusters as further increase is not as significant.  
+```{r Hard clustering first 50 models}
+options(warn=-1)
+#Higher number of iterations and K-maxes was used while estimating the model
+gap_stat <- clusGap(Milan, FUN = kmeans, nstart = 10, iter.max = 10,
+                    K.max = 20, B = 10)
+print(gap_stat, method = "firstmax")
+fviz_gap_stat(gap_stat)
+```
+
+```{r Hard clustering top model}
+k17 <- kmeans(Milan, centers = 17, nstart = 25)
+fviz_cluster(k17, geom = "point",  data = Milan) + ggtitle("k = 17") 
+```
+## Soft Clustering 
+At his point was attempted to estimate Gaussian mixture models with 1-50 clusters. It was found that the best model is using only 4 clusters and has a VEV form. For all the rest of the variables, estimations are having significantly lower BIC. However, we do see that for VII and EII forms there is an upwards trend, so as number G increases we can see a better estimation for this form.
+```{r Soft Clustering}
+#Initially 100 clusters was estimated but still no more than 6 were ever in the top 3
+mod <- Mclust(Milan, G=1:10)
+summary(mod$BIC)
+plot(mod, what = "BIC", ylim = range(mod$BIC[,-(1:2)], na.rm = TRUE),
+     legendArgs = list(x = "bottomright"))
+summary(mod)
+drmod <- MclustDR(mod, lambda = 1)
+plot(drmod, what = "contour")
+```
+
+
+
+
+
+
+
